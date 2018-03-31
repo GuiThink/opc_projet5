@@ -5,6 +5,12 @@ import urllib.parse
 import requests
 
 def get_barcode():
+    """
+    This function sends a GET query to the openfoodfacts API
+    with a product barcode as a filter.
+    Query response is a JSON file.
+    Terminal prints API status and Products details.
+    """
     main_api = 'https://fr.openfoodfacts.org/'
     api_ending = '.json'
 
