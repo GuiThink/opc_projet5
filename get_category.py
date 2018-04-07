@@ -25,9 +25,8 @@ def get_category():
     # json_status = json_data['status_verbose']
     # print('API Status : ' + json_status)
 
-    product_name = json_data['products']#[0]['product_name_fr']
-    for line in product_name[0]:
-            print(line)
+    for each in json_data['products']:
+        print(each['product_name_fr'])
 
 
 get_category()
