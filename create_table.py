@@ -8,7 +8,7 @@ cursor = conn.cursor()
 
 
 def create_category_table():
-    cursor.execute("CREATE TABLE IF NOT EXISTS category (category_id INTEGER PRIMARY KEY, category_name_fr TEXT, datestamp TEXT);")
+    cursor.execute("CREATE TABLE IF NOT EXISTS category (category_id TEXT PRIMARY KEY, category_name_fr TEXT, datestamp TEXT);")
 
 
 def create_product_table():
