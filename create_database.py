@@ -9,8 +9,8 @@ conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
 cursor = conn.cursor()
 
 def create_database():
-    cursor.execute("CREATE DATABASE a_database_from_python;")
-    # conn.commit()
+    cursor.execute("CREATE DATABASE openfoodfacts_db;")
+    conn.commit()
     cursor.close()
     conn.close()
 

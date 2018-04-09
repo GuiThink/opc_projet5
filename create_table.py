@@ -3,7 +3,7 @@
 
 import psycopg2
 
-conn = psycopg2.connect("dbname=openfoodfacts_database user=postgres password=postgres")
+conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
 cursor = conn.cursor()
 
 
@@ -22,9 +22,6 @@ def create_nutrition_grade_table():
 def create_store_table():
     cursor.execute("CREATE TABLE IF NOT EXISTS store (store_id INTEGER PRIMARY KEY, store_desc_fr TEXT, datestamp TEXT);")
 
-conn.commit()
-cursor.close()
-conn.close()
 
 
 # def data_entry():
@@ -48,3 +45,8 @@ create_category_table()
 create_product_table()
 create_nutrition_grade_table()
 create_store_table()
+
+
+conn.commit()
+cursor.close()
+conn.close()
