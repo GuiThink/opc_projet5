@@ -37,7 +37,8 @@ def insert_into_category_table(json_data):
         for each in json_data['tags']:
             category_id = each['id']
             category_name_fr = each['name']
-            datas_to_insert.append((category_id, category_name_fr))
+            if 'fr:' in category_id:
+                datas_to_insert.append((category_id, category_name_fr))
             # print(category_id)
             # print(category_name_fr)
 
