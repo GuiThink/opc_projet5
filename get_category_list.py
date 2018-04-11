@@ -13,7 +13,7 @@ def get_category_list():
     """
     main_api = 'https://fr.openfoodfacts.org/categories.json'
     print('Request URL : ' + main_api)
-    print('Loading datas...please wait.')
+    print('>> 1/3 - LOADING DATAS FROM API. PLEASE WAIT...')
 
     json_data = requests.get(main_api).json()
 
@@ -28,30 +28,30 @@ def get_category_list():
 
 def insert_into_category_table(json_data):
 
-    print('Starting parsing datas...please be patient.')
-    for each in json_data['tags']:
-        category_id = each['id']
-        category_name_fr = each['name']
-        # print(category_id)
-        # print(category_name_fr)
+    print('>> 2/3 - START INSERTING DATAS INTO TABLE. PLEASE WAIT...')
+    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
 
-        datas_to_insert = (category_id, category_name_fr)
+        for each in json_data['tags']:
+            category_id = each['id']
+            category_name_fr = each['name']
+            # print(category_id)
+            # print(category_name_fr)
 
-        with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
-                with conn.cursor() as cursor:
-                    query = """
-                        INSERT into
-                            category
-                            (category_id, category_name_fr)
-                        VALUES
-                            (%s, %s);
-                    """
-                    cursor.execute(query, datas_to_insert)
+            datas_to_insert = (category_id, category_name_fr)
 
-                conn.commit()
+            with conn.cursor() as cursor:
+                query = """
+                    INSERT into
+                        category
+                        (category_id, category_name_fr)
+                    VALUES
+                        (%s, %s);
+                """
+                cursor.execute(query, datas_to_insert)
 
-        print('Datas inserted into the table.')
-        print('Done.')
+            conn.commit()
+
+    print('>> 3/3 - DATAS INSERTED INTO TABLE. ALL DONE.')
 
 
 # def read_from_db():
