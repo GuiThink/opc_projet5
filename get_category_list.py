@@ -5,6 +5,7 @@ import requests
 import psycopg2
 from psycopg2.extras import Json
 
+
 def get_category_list():
     """
     This function sends a GET query to the openfoodfacts API
