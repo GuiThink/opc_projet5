@@ -32,25 +32,26 @@ def insert_into_category_table(json_data):
     print('>> 2/3 - START INSERTING DATAS INTO TABLE. PLEASE WAIT...')
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
 
+        datas_to_insert = []
+
         for each in json_data['tags']:
             category_id = each['id']
             category_name_fr = each['name']
+            datas_to_insert.append((category_id, category_name_fr))
             # print(category_id)
             # print(category_name_fr)
 
-            datas_to_insert = (category_id, category_name_fr)
+        with conn.cursor() as cursor:
+            query = """
+                INSERT into
+                    category
+                    (category_id, category_name_fr)
+                VALUES
+                    (%s, %s);
+            """
+            cursor.executemany(query, datas_to_insert)
 
-            with conn.cursor() as cursor:
-                query = """
-                    INSERT into
-                        category
-                        (category_id, category_name_fr)
-                    VALUES
-                        (%s, %s);
-                """
-                cursor.execute(query, datas_to_insert)
-
-            conn.commit()
+        conn.commit()
 
     print('>> 3/3 - DATAS INSERTED INTO TABLE. ALL DONE.')
 
