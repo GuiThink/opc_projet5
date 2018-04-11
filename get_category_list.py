@@ -17,9 +17,6 @@ def get_category_list():
 
     json_data = requests.get(main_api).json()
 
-    # json_status = json_data['status_verbose']
-    # print('API Status : ' + json_status)
-
     # for each in json_data['tags']:
     #     print(f"category_id : {each['id']} \nname_fr : {each['name']} \nurl_fr : {each['url']}\n----------")
 
@@ -27,7 +24,10 @@ def get_category_list():
 
 
 def insert_into_category_table(json_data):
-
+    """
+    This function connects to the database, Parse targeted datas
+    and Insert them into the defined table.
+    """
     print('>> 2/3 - START INSERTING DATAS INTO TABLE. PLEASE WAIT...')
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
 
@@ -54,31 +54,11 @@ def insert_into_category_table(json_data):
     print('>> 3/3 - DATAS INSERTED INTO TABLE. ALL DONE.')
 
 
+get_category_list()
+
+
 # def read_from_db():
 #     cursor.execute("SELECT * FROM category")
 #     # data = cursor.fetchall()
 #     for row in cursor.fetchall():
 #         print(row)
-
-
-get_category_list()
-
-
-
-# def insert_into_table(data):
-#     # preparing geometry json data for insertion
-#     for item in data:
-#         item['geom'] = Json(item['geometry'])
-#
-#     with psycopg2.connect(database='testdb', user='postgres', password='password', host='localhost') as conn:
-#         with conn.cursor() as cursor:
-#             query = """
-#                 INSERT into
-#                     data_load
-#                     (iso_code, l_postcode, r_postcode, link_id, geom)
-#                 VALUES
-#                     (%(iso_code)s, %(l_postcode)s, %(r_postcode)s, %(link_id)s, st_geomfromgeojson(%(geom)s));
-#             """
-#             cursor.executemany(query, data)
-#
-#         conn.commit()
