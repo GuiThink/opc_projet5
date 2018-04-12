@@ -9,7 +9,7 @@ conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
 cursor = conn.cursor()
 
 def create_database():
-    cursor.execute("CREATE DATABASE openfoodfacts_db;")
+    cursor.execute("CREATE DATABASE openfoodfacts_db ENCODING 'UTF8';")
     conn.commit()
     cursor.close()
     conn.close()
