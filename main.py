@@ -1,5 +1,18 @@
 #! /usr/bin/env python3
 # coding: utf-8
+import requests
+import psycopg2
+
+
+conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
+cursor = conn.cursor()
+
+
+def read_from_db():
+    cursor.execute("SELECT id, category_name_fr FROM category LIMIT 20")
+    for row in cursor.fetchall():
+        print(row)
+
 
 category_list = {'1':'pain','2':'viande','3':'poisson'}
 product_list = {'1':{'1':'brioche','2':'baguette','3':'pain de campagne'},'2':{'1':'boeuf','2':'poulet'},'3':{'1':'morue','2':'truite','3':'requin','4':'bulot'}}
@@ -55,8 +68,8 @@ def get_product_user_input(category_user_input):
 
 
 def main():
-    print_categories()
-
+    # print_categories()
+    read_from_db()
 
 if __name__ == "__main__":
     main()
