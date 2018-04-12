@@ -44,7 +44,7 @@ def insert_into_category_table(json_data):
 
         with conn.cursor() as cursor:
             query = """
-                INSERT into
+                INSERT INTO
                     category
                     (category_id, category_name_fr)
                 VALUES
