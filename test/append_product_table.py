@@ -15,25 +15,25 @@ def append_product_table():
 
     datas = cursor.fetchall()
     for elem in datas:
-        print(f"{elem}")
+        # print(f"{elem}")
+        formated_elem = '\n'.join(elem)
 
-        # main_api = 'https://fr.openfoodfacts.org/'
-        # api_ending = '.json'
-        #
-        # category_url = main_api + urllib.parse.urlencode({'category/': elem + api_ending})
-        # print('Request URL : ' + category_url)
-        #
-        # json_data = requests.get(category_url).json()
-        #
-        # # json_status = json_data['status_verbose']
-        # # print('API Status : ' + json_status)
-        #
-        # for each in json_data['products']:
-        #     print(each['product_name_fr'])
-        #     print(each['category_tags'])
-        #     print(each['nutrition_grades_tags'])
-        #     print(each['stores'])
-        #     print(each['countries'])
+        main_api = 'https://fr.openfoodfacts.org/'
+        api_ending = '.json'
+
+        category_url = main_api + urllib.parse.urlencode({'category/': formated_elem + api_ending})
+
+        json_data = requests.get(category_url).json()
+
+        # json_status = json_data['status_verbose']
+        # print('API Status : ' + json_status)
+
+        try:
+            for each in json_data['products']:
+                print(f"Product name : {each['product_name_fr']} \nCategory : {each['categories']}  \nNutrition grade : {each['nutrition_grades_tags']} \nStore : {each['stores']} \nCountry : {each['countries']} \n =============")
+        except KeyError:
+            pass
+
 
 
 append_product_table()
