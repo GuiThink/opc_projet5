@@ -11,7 +11,7 @@ cursor = conn.cursor()
 
 
 def append_product_table():
-    cursor.execute("SELECT category_name_fr FROM category")
+    cursor.execute("SELECT category_name_fr FROM category WHERE id = ROUND(RANDOM() * 29) + 1")
 
     datas = cursor.fetchall()
     for elem in datas:
@@ -33,7 +33,6 @@ def append_product_table():
                 print(f"Product name : {each['product_name_fr']} \nCategory : {each['categories']}  \nNutrition grade : {each['nutrition_grades_tags']} \nStore : {each['stores']} \nCountry : {each['countries']} \n =============")
         except KeyError:
             pass
-
 
 
 append_product_table()
