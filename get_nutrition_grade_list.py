@@ -37,7 +37,7 @@ def insert_into_nutrition_grade_table(json_data):
         for each in json_data['tags']:
             nutrition_grade_id = each['id']
             nutrition_grade_desc = each['name']
-            if 'a' or 'b' or 'c' or 'd' or 'e' in nutrition_grade_id:
+            if nutrition_grade_id in ['a', 'b', 'c', 'd', 'e']:
                 datas_to_insert.append((nutrition_grade_id, nutrition_grade_desc))
             # print(category_id)
             # print(category_name_fr)
