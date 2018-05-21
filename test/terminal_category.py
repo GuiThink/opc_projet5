@@ -9,7 +9,7 @@ cursor = conn.cursor()
 
 
 def read_from_category_table():
-    cursor.execute("SELECT id, category_name_fr FROM category LIMIT 20")
+    cursor.execute("SELECT id, category_name_fr FROM category LIMIT 50")
 
     datas = cursor.fetchall()
     for index, elem in datas:
