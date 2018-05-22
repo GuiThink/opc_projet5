@@ -8,6 +8,37 @@ import os
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 
+def create_database():
+    """
+    Database creation process
+    """
+    try:
+        conn = psycopg2.connect(host="localhost", user="postgres", password="postgres")
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cursor = conn.cursor()
+        cursor.execute("CREATE DATABASE openfoodfacts_db ENCODING 'UTF8';")
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except psycopg2.ProgrammingError:
+        pass
+
+
+def create_table():
+    """
+    Tables creation process
+    """
+    conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
+    cursor = conn.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS category (id SERIAL PRIMARY KEY, category_id TEXT NOT NULL);")
+    cursor.execute("CREATE TABLE IF NOT EXISTS product (product_id VARCHAR(100) PRIMARY KEY NOT NULL, category_id VARCHAR(100) NOT NULL, product_name_fr VARCHAR(100) NOT NULL, nutrition_grade_id VARCHAR(14) NOT NULL, product_url_fr TEXT NOT NULL);")
+    cursor.execute("CREATE TABLE IF NOT EXISTS nutrition_grade (nutrition_grade_id VARCHAR(14) PRIMARY KEY NOT NULL, nutrition_grade_desc TEXT NOT NULL);")
+    cursor.execute("CREATE TABLE IF NOT EXISTS store (store_id TEXT PRIMARY KEY NOT NULL, store_desc_fr TEXT NOT NULL);")
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
 def get_api_data():
     """
     Retrieves data from api url
@@ -35,37 +66,6 @@ def read_from_local_json_file():
         with open('json_openfoodfacts_db.json') as json_data:
             data = json.load(json_data)
             filter_categories(data)
-
-
-def create_database():
-    """
-    Database creation process
-    """
-    try:
-        conn = psycopg2.connect(host="localhost", user="postgres", password="postgres")
-        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        cursor = conn.cursor()
-        cursor.execute("CREATE DATABASE openfoodfacts_db ENCODING 'UTF8';")
-        conn.commit()
-        cursor.close()
-        conn.close()
-    except psycopg2.ProgrammingError:
-        pass
-
-
-def create_table():
-    """
-    Tables creation process
-    """
-    conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS category (id SERIAL PRIMARY KEY, category_id TEXT NOT NULL, category_name_fr TEXT NOT NULL);")
-    cursor.execute("CREATE TABLE IF NOT EXISTS product (product_id VARCHAR(100) PRIMARY KEY NOT NULL, category_id VARCHAR(100) NOT NULL, product_name_fr VARCHAR(100) NOT NULL, nutrition_grade_id VARCHAR(14) NOT NULL, product_url_fr TEXT NOT NULL);")
-    cursor.execute("CREATE TABLE IF NOT EXISTS nutrition_grade (nutrition_grade_id VARCHAR(14) PRIMARY KEY NOT NULL, nutrition_grade_desc TEXT NOT NULL);")
-    cursor.execute("CREATE TABLE IF NOT EXISTS store (store_id TEXT PRIMARY KEY NOT NULL, store_desc_fr TEXT NOT NULL);")
-    conn.commit()
-    cursor.close()
-    conn.close()
 
 
 def filter_categories(data):
@@ -116,7 +116,7 @@ def remove_duplicates(category_list):
         if category not in check_list:
             clean_french_categories.append(category)
             check_list.add(category)
-            print(category)
+
 
     import_into_categories(clean_french_categories)
 
@@ -125,8 +125,11 @@ def import_into_categories(data_to_insert):
     """
     Import selected categories into PostgreSql table
     """
-    data = data_to_insert
-    print(data)
+    data = []
+    for elem in data_to_insert:
+        split_elem = tuple(elem.split())
+        data.append(split_elem)
+    # print(data)
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
         with conn.cursor() as cursor:
             cursor.executemany("INSERT INTO category (category_id) VALUES (%s)", data)
@@ -144,13 +147,13 @@ def import_products():
 
 def main():
 
+    create_database()
+    create_table()
+
     if os.path.isfile('json_openfoodfacts_db.json') != True:
         get_api_data()
     else:
         read_from_local_json_file()
-
-    create_database()
-    create_table()
 
 
 if __name__ == "__main__":
