@@ -118,24 +118,24 @@ def remove_empty_categories(all_french_categories):
 
 def remove_duplicates(keepers):
     """
-    Removes duplicates from categories list
+    Removes duplicates from a given list
     """
-    clean_french_categories = []
+    unique_data_list = []
     check_list = set()
-    for category in keepers:
-        if category not in check_list:
-            clean_french_categories.append(category)
-            check_list.add(category)
+    for elem in keepers:
+        if elem not in check_list:
+            unique_data_list.append(elem)
+            check_list.add(elem)
 
-    return clean_french_categories
+    return unique_data_list
 
 
-def import_into_categories(clean_french_categories):
+def import_into_categories(unique_category_list):
     """
     Import selected categories into PostgreSql table
     """
     data = []
-    for elem in clean_french_categories:
+    for elem in unique_category_list:
         split_elem = tuple(elem.split())
         data.append(split_elem)
     # print(data)
@@ -163,20 +163,20 @@ def filter_products(raw_data, keepers):
     product_list = []
     for product in raw_data['products']:
         category_list = product['categories_tags']
-        #print(category_list)
-        for each in category_list:
+        # print(category_list)
+        for cat in category_list:
             try:
-                if each in keepers:
+                if cat in keepers:
                     product_id = product['id']
                     product_name_fr = product['product_name_fr']
                     product_category_id = product['categories_tags']
                     product_detail = []
                     category_group = []
 
-                    for each in product_category_id:
-                        if 'fr:' in each:
-                            category_group.append(each)
-                    #print(product_id, product_category_id, product_name_fr)
+                    for elem in product_category_id:
+                        if 'fr:' in elem:
+                            category_group.append(cat)
+                    # print(product_id, product_category_id, product_name_fr)
 
                     product_detail.append(product_id)
                     product_detail.append(product_name_fr)
@@ -188,7 +188,7 @@ def filter_products(raw_data, keepers):
             except KeyError:
                 pass
 
-    #print(product_list)
+    print(product_list)
     return product_list
 
 
@@ -202,12 +202,18 @@ def main():
         read_from_local_json_file()
 
     raw_data = read_from_local_json_file()
+
+    # category process
     all_french_categories = filter_categories(raw_data)
     keepers = remove_empty_categories(all_french_categories)
-    clean_french_categories = remove_duplicates(keepers)
-    import_into_categories(clean_french_categories)
+    unique_category_list = remove_duplicates(keepers)
+    import_into_categories(unique_category_list)
 
+    # product process
     filter_products(raw_data, keepers)
+    # unique_product_list = remove_duplicates(product_list)
+    # print(unique_product_list)
+
 
 if __name__ == "__main__":
     main()
