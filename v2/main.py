@@ -30,24 +30,20 @@ def create_table():
     """
     conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
     cursor = conn.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS category (category_id TEXT PRIMARY KEY NOT NULL);")
+
+    cursor.execute("CREATE TABLE IF NOT EXISTS category (category_id VARCHAR(100) PRIMARY KEY NOT NULL);")
 
     cursor.execute("""CREATE TABLE IF NOT EXISTS product 
                       (product_id VARCHAR(100) NOT NULL,
                       product_name_fr VARCHAR(100) NOT NULL,
                       product_nutrition_grade VARCHAR(1) NOT NULL,
                       product_url_fr TEXT NOT NULL,
-                      product_store TEXT[],
+                      store_id TEXT[],
                       category_id TEXT[] NOT NULL);
                       """)
 
-    cursor.execute("""CREATE TABLE IF NOT EXISTS nutrition_grade 
-                      (nutrition_grade_id VARCHAR(14) PRIMARY KEY NOT NULL, 
-                      nutrition_grade_desc TEXT NOT NULL);
-                      """)
-
     cursor.execute(
-        "CREATE TABLE IF NOT EXISTS store (store_id TEXT PRIMARY KEY NOT NULL, store_desc_fr TEXT NOT NULL);")
+        "CREATE TABLE IF NOT EXISTS store (store_id VARCHAR(100) PRIMARY KEY NOT NULL);")
 
     conn.commit()
     cursor.close()
@@ -148,16 +144,64 @@ def import_into_category(unique_category_list):
         try:
             with conn.cursor() as cursor:
                 cursor.executemany("INSERT INTO category (category_id) VALUES (%s)", data)
+                print(">> CATEGORY TABLE INFO : datas inserted into table.")
         except psycopg2.IntegrityError:
-            print(""">> Data integrity threat ! PK already exists inside table ! 
-No modification applied to current data. Thank you.""")
+            print(">> CATEGORY TABLE INFO : PK already exists into table. Ignoring new insert.")
             pass
     conn.commit()
     conn.close()
 
 
-def import_stores():
-    pass
+def filter_stores(raw_data, keepers):
+    """
+    Create a list of stores that contains all stores found for each category present in category keepers list
+    """
+    store_list = []
+    for product in raw_data['products']:
+        category_list = product['categories_tags']
+        # print(category_list)
+        for cat in category_list:
+            try:
+                if cat in keepers:
+                    product_store = product['stores_tags']
+                    if product_store:
+                        store_list.append(product_store)
+                    else:
+                        continue
+                else:
+                    continue
+            except KeyError:
+                pass
+
+    store_keepers = []
+
+    for elem in store_list:
+        for each in elem:
+            store_keepers.append(each)
+
+    return store_keepers
+
+
+def import_into_store(unique_store_list):
+    """
+    Insert store list into store table
+    """
+    data = []
+    for elem in unique_store_list:
+        split_elem = tuple(elem.split())
+        data.append(split_elem)
+
+    try:
+        with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
+            with conn.cursor() as cursor:
+                cursor.executemany("INSERT INTO store (store_id) VALUES (%s)", data)
+                print(">> STORE TABLE INFO : datas inserted into table.")
+    except psycopg2.IntegrityError:
+        print(">> STORE TABLE INFO : PK already exists into table. Ignoring new insert.")
+        pass
+
+    conn.commit()
+    conn.close()
 
 
 def filter_products(raw_data, keepers):
@@ -198,17 +242,26 @@ def filter_products(raw_data, keepers):
             except KeyError:
                 pass
 
-    # print(product_list)
+    # product_list_tuple = []
+    #
+    # for item in product_list:
+    #     product_list_tuple.append(str(tuple(item)))
+    #
+    # for line in product_list_tuple:
+    #     print(line)
+
     return product_list
+    # return product_list_tuple
 
 
 def import_into_product(product_list):
     """
+    Insert products into product table
     """
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
         with conn.cursor() as cursor:
-            cursor.executemany("INSERT INTO product (product_id, product_name_fr, product_nutrition_grade, product_url_fr, product_store, category_id) VALUES (%s, %s, %s, %s, %s, %s)", product_list)
-
+            cursor.executemany("INSERT INTO product (product_id, product_name_fr, product_nutrition_grade, product_url_fr, store_id, category_id) VALUES (%s, %s, %s, %s, %s, %s)", product_list)
+            print(">> PRODUCT TABLE INFO : datas inserted into table. WARNING PK NOT SET !!!")
     conn.commit()
     conn.close()
 
@@ -234,9 +287,18 @@ def main():
     unique_category_list = remove_duplicates(keepers)
     import_into_category(unique_category_list)
 
+
+    # store process
+    store_keepers = filter_stores(raw_data, keepers)
+    unique_store_list = remove_duplicates(store_keepers)
+    import_into_store(unique_store_list)
+
     # product process
     product_list = filter_products(raw_data, keepers)
-    # unique_product_list = remove_duplicates(product_list)
+    # product_list_tuple = filter_products(raw_data, keepers)
+    # unique_product_list = remove_duplicates(product_list_tuple)
+
+    # import_into_product(product_list_tuple)
     import_into_product(product_list)
 
 
