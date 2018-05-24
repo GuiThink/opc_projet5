@@ -31,19 +31,24 @@ def create_table():
     conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
     cursor = conn.cursor()
     cursor.execute("CREATE TABLE IF NOT EXISTS category (category_id TEXT PRIMARY KEY NOT NULL);")
+
     cursor.execute("""CREATE TABLE IF NOT EXISTS product 
-                      (product_id VARCHAR(100) PRIMARY KEY NOT NULL, 
-                      category_id VARCHAR(100) NOT NULL, 
-                      product_name_fr VARCHAR(100) NOT NULL, 
-                      nutrition_grade_id VARCHAR(14) NOT NULL, 
-                      product_url_fr TEXT NOT NULL);
+                      (product_id VARCHAR(100) NOT NULL,
+                      product_name_fr VARCHAR(100) NOT NULL,
+                      product_nutrition_grade VARCHAR(1) NOT NULL,
+                      product_url_fr TEXT NOT NULL,
+                      product_store TEXT[],
+                      category_id TEXT[] NOT NULL);
                       """)
+
     cursor.execute("""CREATE TABLE IF NOT EXISTS nutrition_grade 
                       (nutrition_grade_id VARCHAR(14) PRIMARY KEY NOT NULL, 
                       nutrition_grade_desc TEXT NOT NULL);
                       """)
+
     cursor.execute(
         "CREATE TABLE IF NOT EXISTS store (store_id TEXT PRIMARY KEY NOT NULL, store_desc_fr TEXT NOT NULL);")
+
     conn.commit()
     cursor.close()
     conn.close()
@@ -57,7 +62,7 @@ def get_api_data():
     &tag_contains_0=contains&tag_0=france&tagtype_1=purchase_places
     &tag_contains_1=contains&tag_1=france&tagtype_2=languages
     &tag_contains_2=contains&tag_2=fran%C3%A7ais
-    &sort_by=unique_scans_n&page_size=500&axis_x=energy
+    &sort_by=unique_scans_n&page_size=1000&axis_x=energy
     &axis_y=products_n&action=display&json=1"""
     json_data = requests.get(api_url).json()
     write_json_file(json_data)
@@ -130,7 +135,7 @@ def remove_duplicates(keepers):
     return unique_data_list
 
 
-def import_into_categories(unique_category_list):
+def import_into_category(unique_category_list):
     """
     Import selected categories into PostgreSql table
     """
@@ -169,6 +174,9 @@ def filter_products(raw_data, keepers):
                 if cat in keepers:
                     product_id = product['id']
                     product_name_fr = product['product_name_fr']
+                    product_nutrition_grade = product['nutrition_grades']
+                    product_url_fr = product['url']
+                    product_store = product['stores_tags']
                     product_category_id = product['categories_tags']
                     product_detail = []
                     category_group = []
@@ -176,26 +184,42 @@ def filter_products(raw_data, keepers):
                     for elem in product_category_id:
                         if 'fr:' in elem:
                             category_group.append(cat)
-                    # print(product_id, product_category_id, product_name_fr)
 
                     product_detail.append(product_id)
                     product_detail.append(product_name_fr)
+                    product_detail.append(product_nutrition_grade)
+                    product_detail.append(product_url_fr)
+                    product_detail.append(product_store)
                     product_detail.append(category_group)
-
+                    # print(product_detail)
                     product_list.append(product_detail)
                 else:
                     continue
             except KeyError:
                 pass
 
-    print(product_list)
+    # print(product_list)
     return product_list
 
 
+def import_into_product(product_list):
+    """
+    """
+    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
+        with conn.cursor() as cursor:
+            cursor.executemany("INSERT INTO product (product_id, product_name_fr, product_nutrition_grade, product_url_fr, product_store, category_id) VALUES (%s, %s, %s, %s, %s, %s)", product_list)
+
+    conn.commit()
+    conn.close()
+
+
 def main():
+
+    # database and tables process
     create_database()
     create_table()
 
+    # json process
     if not os.path.isfile('json_openfoodfacts_db.json'):
         get_api_data()
     else:
@@ -203,16 +227,17 @@ def main():
 
     raw_data = read_from_local_json_file()
 
+
     # category process
     all_french_categories = filter_categories(raw_data)
     keepers = remove_empty_categories(all_french_categories)
     unique_category_list = remove_duplicates(keepers)
-    import_into_categories(unique_category_list)
+    import_into_category(unique_category_list)
 
     # product process
-    filter_products(raw_data, keepers)
+    product_list = filter_products(raw_data, keepers)
     # unique_product_list = remove_duplicates(product_list)
-    # print(unique_product_list)
+    import_into_product(product_list)
 
 
 if __name__ == "__main__":
