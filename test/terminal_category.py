@@ -4,17 +4,23 @@ import requests
 import psycopg2
 
 
-conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
-cursor = conn.cursor()
+
 
 
 def read_from_category_table():
+    """
+    """
+    conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
+    cursor = conn.cursor()
+
     cursor.execute("SELECT id, category_name_fr FROM category LIMIT 50")
 
     datas = cursor.fetchall()
     for index, elem in datas:
         print(f"{index} - {elem}")
     # print(datas[3])
+
+    conn.close()
 
     usr_input = int(input("> category : ")) -1
     print(f"Chosen category is : {datas[usr_input]}")

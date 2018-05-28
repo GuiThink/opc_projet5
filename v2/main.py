@@ -2,10 +2,17 @@
 # coding: utf-8
 
 import psycopg2
+import psycopg2.extras
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import requests
 import json
 import os
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+
+class Conn:
+
+    def __init__(self):
+        pass
 
 
 def create_database():
@@ -31,7 +38,7 @@ def create_table():
     conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
     cursor = conn.cursor()
 
-    cursor.execute("CREATE TABLE IF NOT EXISTS category (category_id VARCHAR(100) PRIMARY KEY NOT NULL);")
+    cursor.execute("CREATE TABLE IF NOT EXISTS category (id SERIAL NOT NULL, category_id VARCHAR(100) NOT NULL, PRIMARY KEY(id, category_id));")
 
     cursor.execute("""CREATE TABLE IF NOT EXISTS product 
                       (product_id VARCHAR(100) NOT NULL,
@@ -81,7 +88,46 @@ def read_from_local_json_file():
     if os.path.isfile('json_openfoodfacts_db.json'):
         with open('json_openfoodfacts_db.json') as json_data:
             raw_data = json.load(json_data)
+
             return raw_data
+
+
+def remove_duplicates(keepers):
+    """
+    Removes duplicates from a given list
+    """
+    unique_data_list = []
+    check_list = set()
+    for elem in keepers:
+        if elem not in check_list:
+            unique_data_list.append(elem)
+            check_list.add(elem)
+
+    return unique_data_list
+
+
+def convert_to_tuple(list_to_convert):
+    """
+    Convert elements into tuple so it can be inserted into a table
+    """
+    data = []
+    for elem in list_to_convert:
+        split_elem = tuple(elem.split())
+        data.append(split_elem)
+    print(data)
+    return data
+
+
+def convert_to_list(list_to_convert):
+    """
+    Convert elements into tuple so it can be inserted into a table
+    """
+    data = []
+    for elem in list_to_convert:
+        split_elem = list(elem.split())
+        data.append(split_elem)
+    print(data)
+    return data
 
 
 def filter_categories(raw_data):
@@ -117,29 +163,18 @@ def remove_empty_categories(all_french_categories):
     return keepers
 
 
-def remove_duplicates(keepers):
-    """
-    Removes duplicates from a given list
-    """
-    unique_data_list = []
-    check_list = set()
-    for elem in keepers:
-        if elem not in check_list:
-            unique_data_list.append(elem)
-            check_list.add(elem)
-
-    return unique_data_list
-
-
 def import_into_category(unique_category_list):
     """
     Import selected categories into PostgreSql table
     """
     data = []
+
     for elem in unique_category_list:
-        split_elem = tuple(elem.split())
+        split_elem = list(elem.split())
         data.append(split_elem)
-    # print(data)
+
+    print(data)
+
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
         try:
             with conn.cursor() as cursor:
@@ -148,6 +183,7 @@ def import_into_category(unique_category_list):
         except psycopg2.IntegrityError:
             print(">> CATEGORY TABLE INFO : PK already exists into table. Ignoring new insert.")
             pass
+
     conn.commit()
     conn.close()
 
@@ -191,14 +227,14 @@ def import_into_store(unique_store_list):
         split_elem = tuple(elem.split())
         data.append(split_elem)
 
-    try:
-        with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
-            with conn.cursor() as cursor:
+    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
                 cursor.executemany("INSERT INTO store (store_id) VALUES (%s)", data)
                 print(">> STORE TABLE INFO : datas inserted into table.")
-    except psycopg2.IntegrityError:
-        print(">> STORE TABLE INFO : PK already exists into table. Ignoring new insert.")
-        pass
+        except psycopg2.IntegrityError:
+            print(">> STORE TABLE INFO : PK already exists into table. Ignoring new insert.")
+            pass
 
     conn.commit()
     conn.close()
@@ -242,16 +278,8 @@ def filter_products(raw_data, keepers):
             except KeyError:
                 pass
 
-    # product_list_tuple = []
-    #
-    # for item in product_list:
-    #     product_list_tuple.append(str(tuple(item)))
-    #
-    # for line in product_list_tuple:
-    #     print(line)
-
+    # print(product_list)
     return product_list
-    # return product_list_tuple
 
 
 def import_into_product(product_list):
@@ -259,11 +287,51 @@ def import_into_product(product_list):
     Insert products into product table
     """
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
-        with conn.cursor() as cursor:
-            cursor.executemany("INSERT INTO product (product_id, product_name_fr, product_nutrition_grade, product_url_fr, store_id, category_id) VALUES (%s, %s, %s, %s, %s, %s)", product_list)
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+            cursor.executemany("""INSERT INTO product 
+                                  (product_id, product_name_fr, product_nutrition_grade, 
+                                  product_url_fr, store_id, category_id) 
+                                  VALUES (%s, %s, %s, %s, %s, %s)""", product_list)
             print(">> PRODUCT TABLE INFO : datas inserted into table. WARNING PK NOT SET !!!")
+
     conn.commit()
     conn.close()
+
+
+def read_category_table():
+    """
+    """
+    conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
+
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute("SELECT id, category_id FROM category LIMIT 30")
+    data = cursor.fetchall()
+    conn.close()
+
+    return data
+
+
+def read_product_table(cat_input):
+    """
+    """
+    input = str(cat_input + 1)
+    print(f"selected id is : {input}")
+
+    conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    cursor.execute("SELECT product.product_name_fr FROM product, category WHERE product.category_id = category.category_id AND category.id = '5'")
+    #cursor.execute("SELECT product_name_fr FROM product WHERE product_id = '13297703'")
+
+    data = cursor.fetchall()
+
+    conn.close()
+
+    for each in data:
+        print(each)
+
+
+    return data
 
 
 def main():
@@ -280,13 +348,11 @@ def main():
 
     raw_data = read_from_local_json_file()
 
-
     # category process
     all_french_categories = filter_categories(raw_data)
     keepers = remove_empty_categories(all_french_categories)
     unique_category_list = remove_duplicates(keepers)
     import_into_category(unique_category_list)
-
 
     # store process
     store_keepers = filter_stores(raw_data, keepers)
@@ -295,11 +361,22 @@ def main():
 
     # product process
     product_list = filter_products(raw_data, keepers)
-    # product_list_tuple = filter_products(raw_data, keepers)
-    # unique_product_list = remove_duplicates(product_list_tuple)
 
     # import_into_product(product_list_tuple)
     import_into_product(product_list)
+
+    # terminal process
+    read_category = read_category_table()
+
+    for each in read_category:
+        print(f"{each[0]} | {each[1]}")
+
+    cat_input = int(input("""\n>> Chose a category by typing its id and then press ENTER. 
+I chose category : """)) -1
+    chosen_cat = read_category[cat_input]
+    print(f"\n>> You have chosen : {chosen_cat[1]}")
+
+    read_product_table(cat_input)
 
 
 if __name__ == "__main__":
