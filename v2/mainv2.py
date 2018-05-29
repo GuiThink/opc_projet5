@@ -279,6 +279,17 @@ def import_into_product(ready_to_go_product_list):
     conn.close()
 
 
+def read_category_table():
+    """
+    """
+    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT category_id FROM category")
+            data = cursor.fetchall()
+
+    return data
+
+
 def main():
 
     # database and tables creation process
@@ -309,6 +320,10 @@ def main():
     import_into_store(ready_to_go_store_list)
     import_into_product(ready_to_go_product_list)
 
+    # read from db process
+    cat_table = read_category_table()
+    # sto_table = read_store_table()
+    # pdct_table = read_product_table()
 
 
 if __name__ == "__main__":
