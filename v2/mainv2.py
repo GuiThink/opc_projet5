@@ -222,7 +222,7 @@ def insert_into_category(ready_to_go_category_list):
     conn.close()
 
 
-def import_into_store(ready_to_go_store_list):
+def insert_into_store(ready_to_go_store_list):
     """
     Insert store list into store table
     """
@@ -246,19 +246,7 @@ def import_into_store(ready_to_go_store_list):
     conn.close()
 
 
-def prepare_category(unique_category_list):
-    """
-    """
-    data = []
-
-    for elem in unique_category_list:
-        split_elem = list(elem.split())
-        data.append(split_elem)
-    print(data)
-    return data
-
-
-def import_into_product(ready_to_go_product_list):
+def insert_into_product(ready_to_go_product_list):
     """
     Insert products into product table
     """
@@ -284,7 +272,66 @@ def read_category_table():
     """
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT category_id FROM category")
+            cursor.execute("SELECT category_id FROM category LIMIT 30")
+            data = cursor.fetchall()
+
+    return data
+
+
+def read_store_table():
+    """
+    """
+    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT store_id FROM store")
+            data = cursor.fetchall()
+
+    return data
+
+
+def get_products_for_given_category(cat_desc):
+    """
+    """
+    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT product.product_id, product.product_name_fr FROM product, category WHERE product.category_id = category.category_id AND category.category_id = %s", cat_desc)
+            data = cursor.fetchall()
+
+    return data
+
+
+def get_all_products():
+    """
+    """
+    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM product")
+            data = cursor.fetchall()
+
+    return data
+
+
+def get_chosen_product_details(pdct_id):
+    """
+    """
+    data_to_insert = list(pdct_id.split())
+
+    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM product WHERE product_id = %s", data_to_insert)
+            data = cursor.fetchall()
+
+    return data
+
+
+def get_substitute_product_details(pdct_id):
+    """
+    """
+    data_to_insert = list(pdct_id.split())
+
+    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM product WHERE product_id = %s", data_to_insert)
             data = cursor.fetchall()
 
     return data
@@ -317,14 +364,52 @@ def main():
 
     # inserts process
     insert_into_category(ready_to_go_category_list)
-    import_into_store(ready_to_go_store_list)
-    import_into_product(ready_to_go_product_list)
+    insert_into_store(ready_to_go_store_list)
+    insert_into_product(ready_to_go_product_list)
 
     # read from db process
     cat_table = read_category_table()
     # sto_table = read_store_table()
     # pdct_table = read_product_table()
 
+    # terminal process
+
+    cat_id = 1
+
+    for category in cat_table:
+        print(f"{cat_id} | {category[0]}")
+        cat_id += 1
+
+    cat_input = int(input("\n>> Please chose a category and press ENTER : \n"))
+    cat_index = cat_input -1
+    cat_desc = cat_table[cat_index]
+
+    print(f"\nYou have selected category {cat_input} | {cat_table[cat_index][0]} \n")
+
+
+    product_list = get_products_for_given_category(cat_desc)
+
+    pdct_id = 1
+    for pdct in product_list:
+        print(f"{pdct_id} | {pdct[1]}")
+        pdct_id += 1
+
+    pdct_input = int(input("\n>> Please chose a product and press ENTER : \n"))
+    pdct_index = pdct_input -1
+    pdct_id = product_list[pdct_index][0]
+
+    print(f"\nYou have selected product {pdct_input} | {product_list[pdct_index][1]} \n")
+
+
+    all_products = get_all_products()
+    found_substitute = get_chosen_product_details(pdct_id)
+
+
+    # substitute_pdct = get_substitute_product_details(pdct_id) # à changer par l'id du substitut
+    # for pdct_attribute in substitute_pdct:
+    #     print("|||||||||||||| SUBSTITUTE ||||||||||||||")
+    #     print(f">> Substitute product advised : {pdct_attribute[1]} \n>> Nutritional grade : {pdct_attribute[2]} \n>> URL : {pdct_attribute[3]}  \n>> Where to buy : {pdct_attribute[4]}")
+    #     print("||||||||||||||||||||||||||||||||||||||||\n")
 
 if __name__ == "__main__":
     main()
