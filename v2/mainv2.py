@@ -32,7 +32,8 @@ def create_table():
     conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
     cursor = conn.cursor()
 
-    cursor.execute("CREATE TABLE IF NOT EXISTS category (category_id VARCHAR(255) UNIQUE NOT NULL, PRIMARY KEY(category_id));")
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS category (category_id VARCHAR(255) UNIQUE NOT NULL, PRIMARY KEY(category_id));")
 
     cursor.execute("CREATE TABLE IF NOT EXISTS store (store_id VARCHAR(255) UNIQUE NOT NULL, PRIMARY KEY (store_id));")
 
@@ -63,6 +64,10 @@ def get_api_data():
     &sort_by=unique_scans_n&page_size=1000&axis_x=energy
     &axis_y=products_n&action=display&json=1"""
     json_data = requests.get(api_url).json()
+    for line in json_data:
+        lines = line.count()
+        for i in tqdm(range(int(lines))):
+            pass
     write_json_file(json_data)
 
 
@@ -149,7 +154,7 @@ def filter_products(raw_data, keepers):
                     product_store = product['stores_tags'][0]  # takes the first store found
 
                     raw_product_list.append((product_id, product_name_fr, product_nutrition_grade,
-                                         product_url_fr, product_store, cat))
+                                             product_url_fr, product_store, cat))
                 except (KeyError, IndexError):
                     continue
 
@@ -227,7 +232,7 @@ def insert_into_store(ready_to_go_store_list):
     Insert store list into store table
     """
     data_to_insert = []
-    
+
     for elem in ready_to_go_store_list:
         split_elem = list(elem.split())
         data_to_insert.append(split_elem)
@@ -294,18 +299,29 @@ def get_products_for_given_category(cat_desc):
     """
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT product.product_id, product.product_name_fr FROM product, category WHERE product.category_id = category.category_id AND category.category_id = %s", cat_desc)
+            cursor.execute(
+                "SELECT product.product_id, product.product_name_fr, product.product_nutrition_grade FROM product, category WHERE product.category_id = category.category_id AND category.category_id = %s",
+                cat_desc)
             data = cursor.fetchall()
 
     return data
 
 
-def get_all_products():
+def print_products(product_list):
+
+    pdct_id = 1
+    for pdct in product_list:
+        print(f"{pdct_id} | {pdct[1]}")
+        pdct_id += 1
+
+
+def potential_substitute(cat_desc):
     """
     """
+
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM product")
+            cursor.execute("SELECT * FROM product WHERE category_id = %s", cat_desc)
             data = cursor.fetchall()
 
     return data
@@ -324,21 +340,91 @@ def get_chosen_product_details(pdct_id):
     return data
 
 
-def get_substitute_product_details(pdct_id):
+def get_substitute_product_details(chosen_pdct_id):
     """
     """
-    data_to_insert = list(pdct_id.split())
-
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM product WHERE product_id = %s", data_to_insert)
+            cursor.execute("SELECT * FROM product WHERE product_id = %s", chosen_pdct_id)
             data = cursor.fetchall()
+
+    for pdct_attribute in data:
+        print("|||||||||||||| SUBSTITUTE ||||||||||||||")
+        print(f">> Substitute product advised : {pdct_attribute[1]} \n>> Nutritional grade : {pdct_attribute[2]} \n>> URL : {pdct_attribute[3]}  \n>> Where to buy : {pdct_attribute[4]}")
+        print("||||||||||||||||||||||||||||||||||||||||\n")
 
     return data
 
 
-def main():
+def map_nutrition_grade(nutrition_grade):
+    """
+    """
+    nutrition_grade_dict = {'a': 5, 'b': 5, 'c': 3, 'd': 2, 'e': 1, 'f': 0}
 
+    for grade in nutrition_grade_dict:
+        if nutrition_grade == grade:
+            nutrition_grade = nutrition_grade_dict[grade]
+        else:
+            pass
+
+    return nutrition_grade
+
+
+def map_nutrition_grade_list(potential_pdcts):
+    """
+
+    """
+    nutrition_grade_dict = {'a': 5, 'b': 5, 'c': 3, 'd': 2, 'e': 1, 'f': 0}
+
+    modified_potential_pdcts_list = []
+
+    for each in potential_pdcts:
+        product_id = each[0]
+        product_name = each[1]
+        product_nutrition_grade = each[2]
+        product_url = each[3]
+        product_shop = each[4]
+        product_category = each[5]
+
+        for letter_grade in product_nutrition_grade:
+            for grade in nutrition_grade_dict:
+                if letter_grade == grade:
+                    letter_grade = nutrition_grade_dict[grade]
+                else:
+                    pass
+
+        modified_potential_pdcts_list.append((product_id, product_name, letter_grade, product_url, product_shop, product_category))
+
+    return modified_potential_pdcts_list
+
+
+def find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list):
+    """
+
+    """
+    # print(f"find substitute function :")
+    # print(f" pdct_id {pdct_id}")
+    # print(f" chosen_product_nutrition_grade {chosen_product_nutrition_grade}")
+    # print(f" modified_potential_pdcts_list {modified_potential_pdcts_list}")
+
+    chosen_product_id = []
+    product_count = 1
+
+    for product in modified_potential_pdcts_list:
+        if product[0] != pdct_id and product[2] >= chosen_product_nutrition_grade:
+            if product_count == 1:
+                chosen_product_id.append(product[0])
+                product_count -= 1
+            else:
+                pass
+        else:
+            continue
+
+
+    return chosen_product_id
+
+
+def main():
     # database and tables creation process
     create_database()
     create_table()
@@ -367,49 +453,47 @@ def main():
     insert_into_store(ready_to_go_store_list)
     insert_into_product(ready_to_go_product_list)
 
-    # read from db process
+    # read from category table
     cat_table = read_category_table()
-    # sto_table = read_store_table()
-    # pdct_table = read_product_table()
 
     # terminal process
-
+    # print categories
     cat_id = 1
 
     for category in cat_table:
         print(f"{cat_id} | {category[0]}")
         cat_id += 1
 
+    # get category input from user
     cat_input = int(input("\n>> Please chose a category and press ENTER : \n"))
-    cat_index = cat_input -1
+    cat_index = cat_input - 1
     cat_desc = cat_table[cat_index]
 
     print(f"\nYou have selected category {cat_input} | {cat_table[cat_index][0]} \n")
 
+    # get products related to the chosen category
+    chosen_cat_related_product_list = get_products_for_given_category(cat_desc)
+    print_products(chosen_cat_related_product_list)
 
-    product_list = get_products_for_given_category(cat_desc)
-
-    pdct_id = 1
-    for pdct in product_list:
-        print(f"{pdct_id} | {pdct[1]}")
-        pdct_id += 1
-
+    # get chosen product input from user
     pdct_input = int(input("\n>> Please chose a product and press ENTER : \n"))
-    pdct_index = pdct_input -1
-    pdct_id = product_list[pdct_index][0]
+    pdct_index = pdct_input - 1
+    pdct_id = chosen_cat_related_product_list[pdct_index][0]
+    pdct_nutrition_grade = chosen_cat_related_product_list[pdct_index][2]
 
-    print(f"\nYou have selected product {pdct_input} | {product_list[pdct_index][1]} \n")
+    print(f"\nYou have selected product {pdct_input} | {chosen_cat_related_product_list[pdct_index][1]} \n")
 
+    # find all possible substitutes to the chosen product
+    potential_pdcts = potential_substitute(cat_desc)
 
-    all_products = get_all_products()
-    found_substitute = get_chosen_product_details(pdct_id)
+    # transform letter based nutrition grade into integer based grade
+    modified_potential_pdcts_list = map_nutrition_grade_list(potential_pdcts)
+    chosen_product_nutrition_grade = map_nutrition_grade(pdct_nutrition_grade)
 
+    # find a suitable substitute among all potential possibilities
+    chosen_product_id = find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list)
+    show_substitute_pdct = get_substitute_product_details(chosen_product_id)
 
-    # substitute_pdct = get_substitute_product_details(pdct_id) # à changer par l'id du substitut
-    # for pdct_attribute in substitute_pdct:
-    #     print("|||||||||||||| SUBSTITUTE ||||||||||||||")
-    #     print(f">> Substitute product advised : {pdct_attribute[1]} \n>> Nutritional grade : {pdct_attribute[2]} \n>> URL : {pdct_attribute[3]}  \n>> Where to buy : {pdct_attribute[4]}")
-    #     print("||||||||||||||||||||||||||||||||||||||||\n")
 
 if __name__ == "__main__":
     main()
