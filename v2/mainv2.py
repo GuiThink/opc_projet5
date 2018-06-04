@@ -7,6 +7,7 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import requests
 import json
 import os
+from datetime import datetime
 
 
 def create_database():
@@ -45,8 +46,11 @@ def create_table():
                       store_id VARCHAR(255) NOT NULL REFERENCES store (store_id),
                       category_id VARCHAR(255) NOT NULL REFERENCES category (category_id),
                       PRIMARY KEY (product_id)
-                      );
-                      """)
+                      );""")
+
+    cursor.execute("""CREATE TABLE IF NOT EXISTS history 
+                      (product_id VARCHAR(255) NOT NULL REFERENCES product (product_id), 
+                      date_time TIMESTAMP NOT NULL);""")
 
     conn.commit()
     cursor.close()
@@ -398,15 +402,24 @@ def map_nutrition_grade_list(potential_pdcts):
     return modified_potential_pdcts_list
 
 
+def save_substitute(chosen_product_id):
+    """
+    """
+    dt = datetime.now()
+    print(dt)
+    print(chosen_product_id)
+
+    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("INSERT INTO history (product_id, date_time) VALUES (%s, %s)", (chosen_product_id, dt,))
+
+    conn.commit()
+    conn.close()
+
+
 def find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list):
     """
-
     """
-    # print(f"find substitute function :")
-    # print(f" pdct_id {pdct_id}")
-    # print(f" chosen_product_nutrition_grade {chosen_product_nutrition_grade}")
-    # print(f" modified_potential_pdcts_list {modified_potential_pdcts_list}")
-
     chosen_product_id = []
     product_count = 1
 
@@ -453,46 +466,110 @@ def main():
     insert_into_store(ready_to_go_store_list)
     insert_into_product(ready_to_go_product_list)
 
-    # read from category table
-    cat_table = read_category_table()
+    # menu system
+    menu_choice = 0
 
-    # terminal process
-    # print categories
-    cat_id = 1
+    print(">> Welcome !")
+    print(">> What do you want to do ?\n")
+    print("1 | Find a substitute")
+    print("2 | Consult my substitutes history\n")
 
-    for category in cat_table:
-        print(f"{cat_id} | {category[0]}")
-        cat_id += 1
+    while True:
+        try:
+            while (menu_choice < 1) or (menu_choice > 2):
+                menu_choice = int(input(">> Type your choice and press ENTER : \n"))
+            break
+        except ValueError:
+            print(">> Please, type in a number.")
 
-    # get category input from user
-    cat_input = int(input("\n>> Please chose a category and press ENTER : \n"))
-    cat_index = cat_input - 1
-    cat_desc = cat_table[cat_index]
+    if menu_choice == 1:
+        print("")
+        # read from category table
+        cat_table = read_category_table()
 
-    print(f"\nYou have selected category {cat_input} | {cat_table[cat_index][0]} \n")
+        # terminal process
+        # print categories
+        cat_id = 1
 
-    # get products related to the chosen category
-    chosen_cat_related_product_list = get_products_for_given_category(cat_desc)
-    print_products(chosen_cat_related_product_list)
+        for category in cat_table:
+            print(f"{cat_id} | {category[0]}")
+            cat_id += 1
 
-    # get chosen product input from user
-    pdct_input = int(input("\n>> Please chose a product and press ENTER : \n"))
-    pdct_index = pdct_input - 1
-    pdct_id = chosen_cat_related_product_list[pdct_index][0]
-    pdct_nutrition_grade = chosen_cat_related_product_list[pdct_index][2]
+        # get category input from user
+        cat_input = 0
+        cat_list_size = len(cat_table)
 
-    print(f"\nYou have selected product {pdct_input} | {chosen_cat_related_product_list[pdct_index][1]} \n")
+        while True:
+            try:
+                while (cat_input < 1) or (cat_input > cat_list_size):
+                    cat_input = int(input("\n>> Please chose a category and press ENTER : \n"))
+                break
+            except ValueError:
+                print(">> Please, type in a number.")
 
-    # find all possible substitutes to the chosen product
-    potential_pdcts = potential_substitute(cat_desc)
+        if 1 <= cat_input <= cat_list_size:
+            cat_index = cat_input - 1
+            cat_desc = cat_table[cat_index]
 
-    # transform letter based nutrition grade into integer based grade
-    modified_potential_pdcts_list = map_nutrition_grade_list(potential_pdcts)
-    chosen_product_nutrition_grade = map_nutrition_grade(pdct_nutrition_grade)
+            print(f"\n>> You have selected category {cat_input} | {cat_table[cat_index][0]} \n")
 
-    # find a suitable substitute among all potential possibilities
-    chosen_product_id = find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list)
-    show_substitute_pdct = get_substitute_product_details(chosen_product_id)
+            # get products related to the chosen category
+            chosen_cat_related_product_list = get_products_for_given_category(cat_desc)
+            print_products(chosen_cat_related_product_list)
+
+            # get chosen product input from user
+            pdct_input = 0
+            pdct_list_size = len(chosen_cat_related_product_list)
+
+            while True:
+                try:
+                    while (pdct_input < 1) or (pdct_input > pdct_list_size):
+                        pdct_input = int(input("\n>> Please chose a product and press ENTER : \n"))
+                    break
+                except ValueError:
+                    print(">> Please, type in a number.")
+
+            if 1 <= pdct_input <= pdct_list_size:
+                pdct_index = pdct_input - 1
+                pdct_id = chosen_cat_related_product_list[pdct_index][0]
+                pdct_nutrition_grade = chosen_cat_related_product_list[pdct_index][2]
+
+                print(f"\n>> You have selected product {pdct_input} | {chosen_cat_related_product_list[pdct_index][1]} \n")
+
+                # find all possible substitutes to the chosen product
+                potential_pdcts = potential_substitute(cat_desc)
+
+                # transform letter based nutrition grade into integer based grade
+                modified_potential_pdcts_list = map_nutrition_grade_list(potential_pdcts)
+                chosen_product_nutrition_grade = map_nutrition_grade(pdct_nutrition_grade)
+
+                # find a suitable substitute among all potential possibilities
+                chosen_product_id = find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list)
+                show_substitute_pdct = get_substitute_product_details(chosen_product_id)
+
+
+                # ask to save
+                print("\n>> Would you like to save this product to find it later ?")
+
+                saving = ''
+
+                while True:
+                    while (saving != 'yes') or (saving != 'no'):
+                        saving = input('choice : ')
+                    break
+
+                if saving is 'yes':
+                    save_substitute(chosen_product_id[0])
+                    print("\n>> Product saved.")
+                    print(">> Goodbye.\n")
+                else:
+                    print("\n>> Goodbye.")
+            else:
+                pass
+        else:
+            pass
+    else:
+        pass
 
 
 if __name__ == "__main__":
