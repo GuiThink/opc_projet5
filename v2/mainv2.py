@@ -434,8 +434,6 @@ def save_substitute(chosen_product_id):
     Process of saving the current substitute product into the history table
     """
     dt = datetime.now()
-    print(dt)
-    print(chosen_product_id)
 
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
         with conn.cursor() as cursor:
@@ -462,10 +460,10 @@ def read_history_table():
                               LIMIT 10""")
             data = cursor.fetchall()
 
-    print("\n>> Your saved products : ")
+    print("\n>> Your saved products : \n")
 
     for elem in data:
-        print(f"\n{elem[6]} \n\t{elem[0]} \n\t{elem[1]} \n\t{elem[5]} \n\t{elem[3]} \n\t{elem[4]} \n\t{elem[2]}")
+        print(f"{elem[6]} \n\t{elem[0]} \n\t{elem[1]} \n\t{elem[5]} \n\t{elem[3]} \n\t{elem[4]} \n\t{elem[2]}\n")
 
     return data
 
@@ -528,9 +526,10 @@ def menu_or_exit(prompt):
     """
     while True:
         choice = input(prompt).strip().upper()
-        if choice is "M":
-            main_menu()
-        elif choice is "Q":
+        if choice == "M":
+            main()
+        elif choice == "Q":
+            print("See you next time !")
             break
         else:
             continue
@@ -567,6 +566,31 @@ def get_cat_input(cat_table):
     print(f"\n>> You have selected category {cat_input} | {cat_table[cat_index][0]} \n")
 
     return cat_desc
+
+
+def get_product_input(chosen_cat_related_product_list):
+    """
+    Prints out the product chosen by the user as a base for substitute research
+    """
+    pdct_input = 0
+    pdct_list_size = len(chosen_cat_related_product_list)
+
+    while True:
+        try:
+            while (pdct_input < 1) or (pdct_input > pdct_list_size):
+                pdct_input = int(input("\n>> Please chose a product and press ENTER : \n"))
+            break
+        except ValueError:
+            print(">> Please, type in a number.")
+
+    pdct_index = pdct_input - 1
+    pdct_id = chosen_cat_related_product_list[pdct_index][0]
+    pdct_nutrition_grade = chosen_cat_related_product_list[pdct_index][2]
+
+    print(f"\n>> You have selected product {pdct_input} "
+          f"| {chosen_cat_related_product_list[pdct_index][1]} \n")
+
+    return pdct_id, pdct_nutrition_grade
 
 
 def main():
@@ -611,57 +635,38 @@ def main():
         print_products(chosen_cat_related_product_list)
 
         # get chosen product input from user
-        pdct_input = 0
-        pdct_list_size = len(chosen_cat_related_product_list)
+        pdct_input = get_product_input(chosen_cat_related_product_list)
+        pdct_id = pdct_input[0]
+        pdct_nutrition_grade = pdct_input[1]
 
-        while True:
-            try:
-                while (pdct_input < 1) or (pdct_input > pdct_list_size):
-                    pdct_input = int(input("\n>> Please chose a product and press ENTER : \n"))
-                break
-            except ValueError:
-                print(">> Please, type in a number.")
+        # find all possible substitutes to the chosen product
+        potential_pdcts = potential_substitute(cat_desc)
 
-        if 1 <= pdct_input <= pdct_list_size:
-            pdct_index = pdct_input - 1
-            pdct_id = chosen_cat_related_product_list[pdct_index][0]
-            pdct_nutrition_grade = chosen_cat_related_product_list[pdct_index][2]
+        # transform letter based nutrition grade into integer based grade
+        modified_potential_pdcts_list = map_nutrition_grade_list(potential_pdcts)
+        chosen_product_nutrition_grade = map_nutrition_grade(pdct_nutrition_grade)
 
-            print(f"\n>> You have selected product {pdct_input} "
-                  f"| {chosen_cat_related_product_list[pdct_index][1]} \n")
+        # find a suitable substitute among all potential possibilities
+        chosen_product_id = find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list)
 
-            # find all possible substitutes to the chosen product
-            potential_pdcts = potential_substitute(cat_desc)
+        # show substitute details
+        get_substitute_product_details(chosen_product_id)
 
-            # transform letter based nutrition grade into integer based grade
-            modified_potential_pdcts_list = map_nutrition_grade_list(potential_pdcts)
-            chosen_product_nutrition_grade = map_nutrition_grade(pdct_nutrition_grade)
+        # ask to save
+        choice = yes_or_no(">> Do you want to save this ? Type YES or NO and then press ENTER : \n")
 
-            # find a suitable substitute among all potential possibilities
-            chosen_product_id = find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list)
-
-            # show substitute details
-            get_substitute_product_details(chosen_product_id)
-
-            # ask to save
-            choice = yes_or_no(">> Do you want to save this ? Type YES or NO and then press ENTER : \n")
-
-            if choice is "yes":
-                save_substitute(chosen_product_id[0])
-                print("\n>> Product saved.")
-                menu_or_exit("\n>> Type M to go back to main menu, "
-                             "or Q to leave the application, and the press ENTER : \n")
-                print(">> Goodbye.\n")
-            else:
-                print("\n>> Unsaved.")
-                menu_or_exit(">> Type M to go back to main menu, "
-                             "or type Q to leave the application, and the press ENTER : \n")
-
+        if choice == "yes":
+            save_substitute(chosen_product_id[0])
+            print("\n>> Product saved.")
+            menu_or_exit("\n>> Type M to go back to main menu, "
+                         "or Q to leave the application, and the press ENTER : \n")
         else:
-            pass
+            print("\n>> Unsaved.")
+            menu_or_exit("\n>> Type M to go back to main menu, "
+                         "or type Q to leave the application, and the press ENTER : \n")
     else:
         read_history_table()
-        menu_or_exit(">> Type M to go back to main menu, "
+        menu_or_exit("\n>> Type M to go back to main menu, "
                      "or type Q to leave the application, and the press ENTER : \n")
 
 
