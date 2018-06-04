@@ -548,6 +548,7 @@ def print_cat_table(cat_table):
 
 def get_cat_input(cat_table):
     """
+    Get category choice from user input and returns category id
     """
     cat_input = 0
     cat_list_size = len(cat_table)
