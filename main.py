@@ -1,105 +1,11 @@
 #! /usr/bin/env python3
 # coding: utf-8
 
-import psycopg2
 import psycopg2.extras
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-import requests
-import json
-import os
 from datetime import datetime
-
-
-def create_database():
-    """
-    Database creation process
-    """
-    try:
-        conn = psycopg2.connect(host="localhost", user="postgres", password="postgres")
-        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        cursor = conn.cursor()
-        cursor.execute("CREATE DATABASE openfoodfacts_db ENCODING 'UTF8';")
-        conn.commit()
-        cursor.close()
-        conn.close()
-    except psycopg2.ProgrammingError:
-        pass
-
-
-def create_table():
-    """
-    Tables creation process
-    """
-    conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS category (category_id VARCHAR(255) UNIQUE NOT NULL, PRIMARY KEY(category_id));")
-
-    cursor.execute("CREATE TABLE IF NOT EXISTS store (store_id VARCHAR(255) UNIQUE NOT NULL, PRIMARY KEY (store_id));")
-
-    cursor.execute("""CREATE TABLE IF NOT EXISTS product 
-                      (product_id VARCHAR(255) UNIQUE NOT NULL,
-                      product_name_fr VARCHAR(255) NOT NULL,
-                      product_nutrition_grade VARCHAR(1) NOT NULL,
-                      product_url VARCHAR(255) NOT NULL,
-                      store_id VARCHAR(255) NOT NULL REFERENCES store (store_id),
-                      category_id VARCHAR(255) NOT NULL REFERENCES category (category_id),
-                      PRIMARY KEY (product_id)
-                      );""")
-
-    cursor.execute("""CREATE TABLE IF NOT EXISTS history 
-                      (product_id VARCHAR(255) NOT NULL REFERENCES product (product_id), 
-                      date_time TIMESTAMP NOT NULL);""")
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-def get_api_data():
-    """
-    Retrieves data from api url
-    """
-    api_url = """https://fr.openfoodfacts.org/cgi/search.pl?action=process&tagtype_0=countries
-    &tag_contains_0=contains&tag_0=france&tagtype_1=purchase_places
-    &tag_contains_1=contains&tag_1=france&tagtype_2=languages
-    &tag_contains_2=contains&tag_2=fran%C3%A7ais
-    &sort_by=unique_scans_n&page_size=1000&axis_x=energy
-    &axis_y=products_n&action=display&json=1"""
-    json_data = requests.get(api_url).json()
-    write_json_file(json_data)
-
-
-def write_json_file(json_data):
-    """
-    Saves json database dump file on local disk
-    """
-    with open('json_openfoodfacts_db.json', 'w') as outfile:
-        json.dump(json_data, outfile)
-
-    read_from_local_json_file()
-
-
-def read_from_local_json_file():
-    """
-    Read json database dump file from local disk
-    """
-    if os.path.isfile('json_openfoodfacts_db.json'):
-        with open('json_openfoodfacts_db.json') as json_data:
-            raw_data = json.load(json_data)
-
-            return raw_data
-
-
-def is_local_json():
-    """
-    Verifies if there is a local json file or not.
-    """
-    if not os.path.isfile('json_openfoodfacts_db.json'):
-        get_api_data()
-    else:
-        read_from_local_json_file()
+from create_database import *
+from insert_into_database import *
+from api_json import *
 
 
 def filter_categories(raw_data):
@@ -110,8 +16,7 @@ def filter_categories(raw_data):
 
     for product in raw_data['products']:
         category_list = product['categories_tags']
-        for category in category_list:
-            raw_categories.append(category)
+        raw_categories += category_list
 
     fr_categories = []
 
@@ -133,14 +38,7 @@ def remove_duplicates(list_to_clean):
     """
     Removes duplicates from a given list
     """
-    unique_data_list = []
-    check_list = set()
-    for elem in list_to_clean:
-        if elem not in check_list:
-            unique_data_list.append(elem)
-            check_list.add(elem)
-
-    return unique_data_list
+    return set(list_to_clean)
 
 
 def filter_products(raw_data, keepers):
@@ -207,79 +105,9 @@ def filter_stores(raw_data, keepers):
     store_keepers = []
 
     for elem in store_list:
-        for each in elem:
-            store_keepers.append(each)
+        store_keepers += elem
 
     return store_keepers
-
-
-def insert_into_category(ready_to_go_category_list):
-    """
-    Inserts selected categories into category table
-    """
-    data_to_insert = []
-
-    for elem in ready_to_go_category_list:
-        split_elem = list(elem.split())
-        data_to_insert.append(split_elem)
-
-    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
-        try:
-            with conn.cursor() as cursor:
-                for each in data_to_insert:
-                    cursor.execute("INSERT INTO category (category_id) VALUES (%s)", each)
-            print(">> CATEGORY TABLE INFO : datas inserted into table.")
-        except psycopg2.IntegrityError:
-            print(">> CATEGORY TABLE INFO : PK already exists into table. Ignoring new insert.")
-            pass
-
-    conn.commit()
-    conn.close()
-
-
-def insert_into_store(ready_to_go_store_list):
-    """
-    Inserts store list into store table
-    """
-    data_to_insert = []
-
-    for elem in ready_to_go_store_list:
-        split_elem = list(elem.split())
-        data_to_insert.append(split_elem)
-
-    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
-        try:
-            with conn.cursor() as cursor:
-                for each in data_to_insert:
-                    cursor.execute("INSERT INTO store (store_id) VALUES (%s)", each)
-            print(">> STORE TABLE INFO : datas inserted into table.")
-        except psycopg2.IntegrityError:
-            print(">> STORE TABLE INFO : PK already exists into table. Ignoring new insert.")
-            pass
-
-    conn.commit()
-    conn.close()
-
-
-def insert_into_product(ready_to_go_product_list):
-    """
-    Inserts products into product table
-    """
-    with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
-        try:
-            with conn.cursor() as cursor:
-                for each in ready_to_go_product_list:
-                    cursor.execute("""INSERT INTO product 
-                                      (product_id, product_name_fr, product_nutrition_grade, 
-                                      product_url, store_id, category_id) 
-                                      VALUES (%s, %s, %s, %s, %s, %s)""", each)
-            print(">> PRODUCT TABLE INFO : datas inserted into table.")
-        except psycopg2.IntegrityError:
-            print(">> PRODUCT TABLE INFO : PK already exists into table. Ignoring new insert.")
-            pass
-
-    conn.commit()
-    conn.close()
 
 
 def read_category_table():
@@ -370,15 +198,8 @@ def get_substitute_product_details(chosen_pdct_id):
     with psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres") as conn:
         with conn.cursor() as cursor:
             cursor.execute("SELECT * FROM product WHERE product_id = %s", chosen_pdct_id)
-            data = cursor.fetchall()
 
-    for pdct_attribute in data:
-        print("|||||||||||||| SUBSTITUTE ||||||||||||||")
-        print(f">> Substitute product advised : {pdct_attribute[1]} "
-              f"\n>> Nutritional grade : {pdct_attribute[2]} "
-              f"\n>> URL : {pdct_attribute[3]}  "
-              f"\n>> Where to buy : {pdct_attribute[4]}")
-        print("||||||||||||||||||||||||||||||||||||||||\n")
+            data = cursor.fetchall()
 
     return data
 
@@ -417,14 +238,10 @@ def map_nutrition_grade_list(potential_pdcts):
         product_shop = each[4]
         product_category = each[5]
 
-        for letter_grade in product_nutrition_grade:
-            for grade in nutrition_grade_dict:
-                if letter_grade == grade:
-                    letter_grade = nutrition_grade_dict[grade]
-                else:
-                    pass
-
-        modified_potential_pdcts_list.append((product_id, product_name, letter_grade, product_url, product_shop, product_category))
+        if product_nutrition_grade in nutrition_grade_dict:
+            grade = nutrition_grade_dict[product_nutrition_grade]
+            modified_potential_pdcts_list.append((product_id, product_name,
+                                                  grade, product_url, product_shop, product_category))
 
     return modified_potential_pdcts_list
 
@@ -456,7 +273,7 @@ def read_history_table():
                               WHERE product.product_id = history.product_id 
                               AND product.store_id = store.store_id 
                               AND product.category_id = category.category_id
-                              ORDER BY history.date_time DESC
+                              ORDER BY history.date_time ASC
                               LIMIT 10""")
             data = cursor.fetchall()
 
@@ -486,53 +303,6 @@ def find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_
             continue
 
     return chosen_product_id
-
-
-def yes_or_no(prompt):
-    """
-    Saves the saving choice of user (yes or no)
-    """
-    while True:
-        choice = input(prompt).strip().lower()
-        if choice in ("yes", "no"):
-            return choice
-
-
-def main_menu():
-    """
-    Main menu of the application
-    """
-    menu_choice = 0
-
-    print(">> Welcome !")
-    print(">> What do you want to do ?\n")
-    print("1 | Find a substitute")
-    print("2 | Consult my substitutes history\n")
-
-    while True:
-        try:
-            while (menu_choice < 1) or (menu_choice > 2):
-                menu_choice = int(input(">> Type your choice and press ENTER : \n"))
-            break
-        except ValueError:
-            print(">> Please, type in a number.")
-
-    return menu_choice
-
-
-def menu_or_exit(prompt):
-    """
-    Saves the saving choice of user (yes or no)
-    """
-    while True:
-        choice = input(prompt).strip().upper()
-        if choice == "M":
-            main()
-        elif choice == "Q":
-            print("See you next time !")
-            break
-        else:
-            continue
 
 
 def print_cat_table(cat_table):
@@ -594,13 +364,62 @@ def get_product_input(chosen_cat_related_product_list):
     return pdct_id, pdct_nutrition_grade
 
 
+def main_menu():
+    """
+    Main menu of the application
+    """
+    menu_choice = 0
+
+    print(">> Welcome !")
+    print(">> What do you want to do ?\n")
+    print("1 | Find a substitute")
+    print("2 | Consult my substitutes history\n")
+
+    while True:
+        try:
+            while (menu_choice < 1) or (menu_choice > 2):
+                menu_choice = int(input(">> Type your choice and press ENTER : \n"))
+            break
+        except ValueError:
+            print(">> Please, type in a number.")
+
+    return menu_choice
+
+
+def menu_or_exit(prompt):
+    """
+    Saves the saving choice of user (yes or no)
+    """
+    while True:
+        choice = input(prompt).strip().upper()
+        if choice == "M":
+            main()
+        elif choice == "Q":
+            print("See you next time !")
+            break
+        else:
+            continue
+
+
+def yes_or_no(prompt):
+    """
+    Saves the saving choice of user (yes or no)
+    """
+    while True:
+        choice = input(prompt).strip().lower()
+        if choice in ("yes", "no"):
+            return choice
+
+
 def main():
     # database and tables creation process
     create_database()
     create_table()
 
     # data retrieving process
-    is_local_json()
+    if not os.path.isfile('json_openfoodfacts_db.json'):
+        get_api_data()
+
     raw_data = read_from_local_json_file()
 
     # category filtering process
@@ -651,7 +470,15 @@ def main():
         chosen_product_id = find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list)
 
         # show substitute details
-        get_substitute_product_details(chosen_product_id)
+        substitutes = get_substitute_product_details(chosen_product_id)
+
+        for pdct_attribute in substitutes:
+            print("|||||||||||||| SUBSTITUTE ||||||||||||||")
+            print(f">> Substitute product advised : {pdct_attribute[1]} "
+                  f"\n>> Nutritional grade : {pdct_attribute[2]} "
+                  f"\n>> URL : {pdct_attribute[3]}  "
+                  f"\n>> Where to buy : {pdct_attribute[4]}")
+            print("||||||||||||||||||||||||||||||||||||||||\n")
 
         # ask to save
         choice = yes_or_no(">> Do you want to save this ? Type YES or NO and then press ENTER : \n")
