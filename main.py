@@ -246,7 +246,8 @@ def save_substitute(chosen_product_id, initial_product_id):
     dt = datetime.now()
 
     with UseDatabase() as cursor:
-        cursor.execute("INSERT INTO history (product_id, initial_product_id, date_time) VALUES (%s, %s, %s)", (chosen_product_id, initial_product_id, dt))
+        cursor.execute("INSERT INTO history (product_id, initial_product_id, date_time) "
+                       "VALUES (%s, %s, %s)", (chosen_product_id, initial_product_id, dt))
 
 
 def read_history_table():
@@ -290,20 +291,21 @@ def print_history(query1, query2):
 
     print("\n>> Your saved products : \n")
 
-    for elem in query1:
-        for item in query2:
-            print(f"# date / time : {elem[6]} \n"
-                  f"\n\t## Your initial product : {item[0]} "
-                  f"\n\t\t# nutrition grade : {item[1]} \n"
-                  f"\n\t## Your substitute product : "
+    i = 0
+    while i < (len(query2)):
+        for elem in query1:
+            print(f"# date / time : {elem[6]} \n")
+            print(f"\t## Your initial product : {query2[i][0]} "
+                  f"\n\t\t# nutrition grade : {query2[i][1]} ")
+            print(f"\n\t## Your substitute product : "
                   f"\n\t\t# barcode : {elem[0]} "
                   f"\n\t\t# substitute description : {elem[1]} "
                   f"\n\t\t# category : {elem[5]} "
                   f"\n\t\t# url : {elem[3]} "
                   f"\n\t\t# shop : {elem[4]} "
-                  f"\n\t\t# nutrition grade : {elem[2]}\n"
-                  f"---------------------------------------------------------")
-
+                  f"\n\t\t# nutrition grade : {elem[2]}\n "
+                  f"\n ---------------------------------------------------------")
+            i += 1
 
 
 def find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list):
