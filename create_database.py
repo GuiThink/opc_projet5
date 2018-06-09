@@ -3,6 +3,7 @@
 
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+from database_connect import UseDatabase
 
 
 def create_database():
@@ -25,28 +26,23 @@ def create_table():
     """
     Tables creation process
     """
-    conn = psycopg2.connect(host="localhost", database="openfoodfacts_db", user="postgres", password="postgres")
-    cursor = conn.cursor()
+    with UseDatabase() as cursor:
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS category (category_id VARCHAR(255) UNIQUE NOT NULL, PRIMARY KEY(category_id));")
 
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS category (category_id VARCHAR(255) UNIQUE NOT NULL, PRIMARY KEY(category_id));")
+        cursor.execute("CREATE TABLE IF NOT EXISTS store (store_id VARCHAR(255) UNIQUE NOT NULL, PRIMARY KEY (store_id));")
 
-    cursor.execute("CREATE TABLE IF NOT EXISTS store (store_id VARCHAR(255) UNIQUE NOT NULL, PRIMARY KEY (store_id));")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS product 
+                          (product_id VARCHAR(255) UNIQUE NOT NULL,
+                          product_name_fr VARCHAR(255) NOT NULL,
+                          product_nutrition_grade VARCHAR(1) NOT NULL,
+                          product_url VARCHAR(255) NOT NULL,
+                          store_id VARCHAR(255) NOT NULL REFERENCES store (store_id),
+                          category_id VARCHAR(255) NOT NULL REFERENCES category (category_id),
+                          PRIMARY KEY (product_id)
+                          );""")
 
-    cursor.execute("""CREATE TABLE IF NOT EXISTS product 
-                      (product_id VARCHAR(255) UNIQUE NOT NULL,
-                      product_name_fr VARCHAR(255) NOT NULL,
-                      product_nutrition_grade VARCHAR(1) NOT NULL,
-                      product_url VARCHAR(255) NOT NULL,
-                      store_id VARCHAR(255) NOT NULL REFERENCES store (store_id),
-                      category_id VARCHAR(255) NOT NULL REFERENCES category (category_id),
-                      PRIMARY KEY (product_id)
-                      );""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS history 
+                          (product_id VARCHAR(255) NOT NULL REFERENCES product (product_id), 
+                          date_time TIMESTAMP NOT NULL);""")
 
-    cursor.execute("""CREATE TABLE IF NOT EXISTS history 
-                      (product_id VARCHAR(255) NOT NULL REFERENCES product (product_id), 
-                      date_time TIMESTAMP NOT NULL);""")
-
-    conn.commit()
-    cursor.close()
-    conn.close()
