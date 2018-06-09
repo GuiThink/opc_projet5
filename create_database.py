@@ -43,6 +43,7 @@ def create_table():
                           );""")
 
         cursor.execute("""CREATE TABLE IF NOT EXISTS history 
-                          (product_id VARCHAR(255) NOT NULL REFERENCES product (product_id), 
+                          (product_id VARCHAR(255) NOT NULL REFERENCES product (product_id),
+                          initial_product_id VARCHAR(255) NOT NULL REFERENCES product (product_id),
                           date_time TIMESTAMP NOT NULL);""")
 

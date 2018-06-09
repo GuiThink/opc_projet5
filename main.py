@@ -1,11 +1,11 @@
 #! /usr/bin/env python3
 # coding: utf-8
 
-from database_connect import UseDatabase
 from datetime import datetime
 from create_database import *
 from insert_into_database import *
 from api_json import *
+from database_connect import UseDatabase
 
 
 def filter_categories(raw_data):
@@ -239,14 +239,14 @@ def map_nutrition_grade_list(potential_pdcts):
     return modified_potential_pdcts_list
 
 
-def save_substitute(chosen_product_id):
+def save_substitute(chosen_product_id, initial_product_id):
     """
     Process of saving the current substitute product into the history table
     """
     dt = datetime.now()
 
     with UseDatabase() as cursor:
-        cursor.execute("INSERT INTO history (product_id, date_time) VALUES (%s, %s)", (chosen_product_id, dt,))
+        cursor.execute("INSERT INTO history (product_id, initial_product_id, date_time) VALUES (%s, %s, %s)", (chosen_product_id, initial_product_id, dt))
 
 
 def read_history_table():
@@ -256,21 +256,54 @@ def read_history_table():
     with UseDatabase() as cursor:
         cursor.execute("""SELECT product.product_id, product.product_name_fr,
                           product.product_nutrition_grade, product.product_url,
-                          product.store_id, product.category_id, history.date_time
+                          product.store_id, product.category_id, history.date_time,
+                          history.initial_product_id
                           FROM product, category, history, store
-                          WHERE product.product_id = history.product_id 
-                          AND product.store_id = store.store_id 
+                          WHERE product.product_id = history.product_id
+                          AND product.store_id = store.store_id
                           AND product.category_id = category.category_id
                           ORDER BY history.date_time ASC
                           LIMIT 10""")
+
         data = cursor.fetchall()
+
+    return data
+
+
+def read_history_table_2():
+    """
+    Prints out the last 10 initial products saved by user
+    """
+    with UseDatabase() as cursor:
+        cursor.execute("""SELECT product.product_name_fr, product.product_nutrition_grade
+                          FROM product, history
+                          WHERE product.product_id = history.initial_product_id
+                          ORDER BY history.date_time ASC
+                          LIMIT 10""")
+
+        data = cursor.fetchall()
+
+    return data
+
+
+def print_history(query1, query2):
 
     print("\n>> Your saved products : \n")
 
-    for elem in data:
-        print(f"{elem[6]} \n\t{elem[0]} \n\t{elem[1]} \n\t{elem[5]} \n\t{elem[3]} \n\t{elem[4]} \n\t{elem[2]}\n")
+    for elem in query1:
+        for item in query2:
+            print(f"# date / time : {elem[6]} \n"
+                  f"\n\t## Your initial product : {item[0]} "
+                  f"\n\t\t# nutrition grade : {item[1]} \n"
+                  f"\n\t## Your substitute product : "
+                  f"\n\t\t# barcode : {elem[0]} "
+                  f"\n\t\t# substitute description : {elem[1]} "
+                  f"\n\t\t# category : {elem[5]} "
+                  f"\n\t\t# url : {elem[3]} "
+                  f"\n\t\t# shop : {elem[4]} "
+                  f"\n\t\t# nutrition grade : {elem[2]}\n"
+                  f"---------------------------------------------------------")
 
-    return data
 
 
 def find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list):
@@ -472,7 +505,7 @@ def main():
         choice = yes_or_no(">> Do you want to save this ? Type YES or NO and then press ENTER : \n")
 
         if choice == "yes":
-            save_substitute(chosen_product_id[0])
+            save_substitute(chosen_product_id[0], pdct_id)
             print("\n>> Product saved.")
             menu_or_exit("\n>> Type M to go back to main menu, "
                          "or Q to leave the application, and the press ENTER : \n")
@@ -481,7 +514,9 @@ def main():
             menu_or_exit("\n>> Type M to go back to main menu, "
                          "or type Q to leave the application, and the press ENTER : \n")
     else:
-        read_history_table()
+        query1 = read_history_table()
+        query2 = read_history_table_2()
+        print_history(query1, query2)
         menu_or_exit("\n>> Type M to go back to main menu, "
                      "or type Q to leave the application, and the press ENTER : \n")
 
