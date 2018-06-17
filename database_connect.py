@@ -17,13 +17,15 @@ class UseDatabase:
             "password": "postgres",
             }
         self.configuration = dbconfig
-
-    def __enter__(self) -> "cursor":
         self.conn = psycopg2.connect(**self.configuration)
         self.cursor = self.conn.cursor()
+
+    def __enter__(self):
         return self.cursor
 
     def __exit__(self, exc_type, exc_value, exc_trace) -> None:
         self.conn.commit()
+
+    def __del__(self):
         self.cursor.close()
         self.conn.close()
