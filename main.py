@@ -1,78 +1,50 @@
 #! /usr/bin/env python3
 # coding: utf-8
 
-import database_creator
-import nutrition_grade_mapping
-import printers
-import readers
-import substitute
-import user_inputs
+from data_base.database_creator import DatabaseCreator
+from data_base.get_json_from_api import Json
+from data_base.inserts import Inserts
+from main_functions.category_choice import CategoryChoice
+from main_functions.history import History
+from main_functions.product_choice import ProductChoice
+from main_functions.save import Save
+from nav.menu import Menu
+from processing.filters import Filters
+from processing.substitute import Substitute
 
 
 def main():
-    database_creator.DatabaseCreator()
+
+    DatabaseCreator()
+    Json()
+    raw_data = Json.read_local_json()
+    filtered_datas = Filters(raw_data)
+    Inserts(filtered_datas.ready_categories, filtered_datas.ready_stores, filtered_datas.ready_products)
 
     while True:
-        # menu system
-        menu_choice = user_inputs.main_menu()
 
-        if menu_choice == 1:
+        menu = Menu()
 
-            # read from category table
-            cat_table = readers.read_category_table()
-            printers.print_cat_table(cat_table)
+        if menu.menu_choice == 1:
 
-            # get category input from user
-            cat_desc = user_inputs.get_cat_input(cat_table)
+            categories = CategoryChoice()
 
-            # get products related to the chosen category
-            chosen_cat_related_product_list = readers.get_products_for_given_category(cat_desc)
-            printers.print_products(chosen_cat_related_product_list)
+            chosen_product = ProductChoice(categories.category_choice)
 
-            # get chosen product input from user
-            pdct_input = user_inputs.get_product_input(chosen_cat_related_product_list)
-            pdct_id = pdct_input[0]
-            pdct_nutrition_grade = pdct_input[1]
+            subsitute = Substitute(chosen_product.category_choice, chosen_product.pdct_input, chosen_product.pdct_index,
+                                   chosen_product.pdct_id, chosen_product.pdct_nutrition_grade)
 
-            # find all possible substitutes to the chosen product
-            potential_pdcts = readers.potential_substitute(cat_desc)
+            save = Save()
 
-            # transform letter based nutrition grade into integer based grade
-            modified_potential_pdcts_list = nutrition_grade_mapping.map_nutrition_grade_list(potential_pdcts)
-            chosen_product_nutrition_grade = nutrition_grade_mapping.map_nutrition_grade(pdct_nutrition_grade)
-
-            # find a suitable substitute among all potential possibilities
-            chosen_product_id = substitute.find_substitute(pdct_id, chosen_product_nutrition_grade, modified_potential_pdcts_list)
-
-            # show substitute details
-            substitutes = readers.get_substitute_product_details(chosen_product_id)
-
-            for pdct_attribute in substitutes:
-                print("|||||||||||||| SUBSTITUTE ||||||||||||||")
-                print(f">> Substitute product advised : {pdct_attribute[1]} "
-                      f"\n>> Nutritional grade : {pdct_attribute[2]} "
-                      f"\n>> URL : {pdct_attribute[3]}  "
-                      f"\n>> Where to buy : {pdct_attribute[4]}")
-                print("||||||||||||||||||||||||||||||||||||||||\n")
-
-            # ask to save
-            choice = user_inputs.yes_or_no(">> Do you want to save this ? Type YES or NO and then press ENTER : \n")
-
-            if choice == "yes":
-                substitute.save_substitute(chosen_product_id[0], pdct_id)
-                print("\n>> Product saved.")
-                user_inputs.menu_or_exit("\n>> Type M to go back to main menu, "
-                             "or Q to leave the application, and the press ENTER : \n")
+            if save.saving_choice == 'yes':
+                save.save_substitute(subsitute.chosen_product_id[0], chosen_product.pdct_id)
+                menu.back_to_menu_or_exit()
             else:
-                print("\n>> Unsaved.")
-                user_inputs.menu_or_exit("\n>> Type M to go back to main menu, "
-                             "or type Q to leave the application, and the press ENTER : \n")
+                menu.back_to_menu_or_exit()
+
         else:
-            query1 = readers.read_history_table()
-            query2 = readers.read_history_table_2()
-            printers.print_history(query1, query2)
-            user_inputs.menu_or_exit("\n>> Type M to go back to main menu, "
-                         "or type Q to leave the application, and the press ENTER : \n")
+            History()
+            menu.back_to_menu_or_exit()
 
 
 if __name__ == "__main__":
